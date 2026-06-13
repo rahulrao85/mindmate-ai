@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import {
   GEMINI_API_KEY, OPENROUTER_API_KEY,
   GEMINI_MODEL, DEEPSEEK_MODEL,
@@ -17,6 +17,23 @@ function getGeminiClient() {
   return geminiClient;
 }
 
+const GEMINI_SAFETY_SETTINGS = Object.freeze([
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+]);
+
+function getGeminiModel(systemInstruction) {
+  const client = getGeminiClient();
+  if (!client) return null;
+  return client.getGenerativeModel({
+    model: GEMINI_MODEL,
+    systemInstruction,
+    safetySettings: GEMINI_SAFETY_SETTINGS,
+  });
+}
+
 const responseCache = new Map();
 
 function getCached(key) {
@@ -33,15 +50,10 @@ function setCache(key, data) {
 }
 
 export async function analyzeWithGemini(entry, exam) {
-  const client = getGeminiClient();
-  if (!client) {
+  const model = getGeminiModel(getSystemPrompt());
+  if (!model) {
     throw new Error('Gemini API key not configured');
   }
-
-  const model = client.getGenerativeModel({
-    model: GEMINI_MODEL,
-    systemInstruction: getSystemPrompt(),
-  });
 
   const prompt = buildAnalysisPrompt(entry, exam);
 
@@ -256,13 +268,9 @@ export async function chatWithAI(messages, exam) {
     }
   }
 
-  const client = getGeminiClient();
-  if (client) {
+  const geminiModel = getGeminiModel(chatSystemPrompt);
+  if (geminiModel) {
     try {
-      const model = client.getGenerativeModel({
-        model: GEMINI_MODEL,
-        systemInstruction: chatSystemPrompt,
-      });
 
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Gemini chat timeout')), GEMINI_TIMEOUT_MS)
@@ -273,7 +281,7 @@ export async function chatWithAI(messages, exam) {
         parts: [{ text: m.content }],
       }));
 
-      const chat = model.startChat({ history: chatMessages.slice(0, -1) });
+      const chat = geminiModel.startChat({ history: chatMessages.slice(0, -1) });
       const result = await Promise.race([
         chat.sendMessage(chatMessages[chatMessages.length - 1].parts[0].text),
         timeoutPromise,

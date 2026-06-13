@@ -1,22 +1,5 @@
-// ── Constants ─────────────────────────────────────────────────────────
-const STORAGE_KEY = 'mindmate_mood_history';
-const THEME_KEY = 'mindmate_theme';
-const MAX_HISTORY = 30;
-
-// ── Mood Emoji Map ────────────────────────────────────────────────────
-
-const MOOD_EMOJIS = {
-  happy: '😊',
-  motivated: '🔥',
-  calm: '😌',
-  anxious: '😰',
-  stressed: '😫',
-  burnt_out: '🥵',
-  sad: '😢',
-  frustrated: '😤',
-  overwhelmed: '🌊',
-  hopeful: '🌟',
-};
+import { MOOD_EMOJIS, AFFIRMATIONS, getMoodCategory, escapeHtml } from './app-utils.js';
+import { loadHistory, saveEntry, STORAGE_KEY, THEME_KEY, MAX_HISTORY } from './app-storage.js';
 
 // ── DOM Elements ──────────────────────────────────────────────────────
 const journalForm = document.getElementById('journal-form');
@@ -50,40 +33,12 @@ function toggleTheme() {
   document.documentElement.setAttribute('data-theme', next);
   localStorage.setItem(THEME_KEY, next);
 
-  // Update chart colors if chart exists
   if (moodChart) {
     renderMoodChart();
   }
 }
 
-// ── Mood History (localStorage) ───────────────────────────────────────
-
-function loadHistory() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveEntry(entry) {
-  const history = loadHistory();
-  history.push({
-    date: new Date().toISOString(),
-    mood: entry.mood,
-    score: entry.score,
-    exam: entry.exam,
-    triggers: entry.triggers || [],
-  });
-
-  // Keep only the last MAX_HISTORY entries
-  if (history.length > MAX_HISTORY) {
-    history.splice(0, history.length - MAX_HISTORY);
-  }
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-}
+// ── Mood History ──────────────────────────────────────────────────────
 
 function clearHistory() {
   if (confirm('Clear all mood history? This cannot be undone.')) {
@@ -118,7 +73,6 @@ function renderMoodChart() {
     return;
   }
 
-  // Show chart, hide placeholder
   if (moodPlaceholder) moodPlaceholder.style.display = 'none';
   canvas.style.display = 'block';
   if (moodStats) moodStats.hidden = false;
@@ -133,7 +87,6 @@ function renderMoodChart() {
   const scores = history.map((h) => h.score);
   const emojis = history.map((h) => MOOD_EMOJIS[h.mood] || '😐');
 
-  // Destroy previous chart instance if exists
   if (moodChart) {
     moodChart.destroy();
   }
@@ -219,7 +172,6 @@ function updateMoodStats() {
   entriesEl.textContent = history.length;
   avgEl.textContent = `${avg.toFixed(1)}/10`;
 
-  // Calculate trend from last 3 vs overall
   if (scores.length >= 3) {
     const recentAvg = scores.slice(-3).reduce((a, b) => a + b, 0) / 3;
     if (recentAvg > avg + 0.5) {
@@ -239,12 +191,6 @@ function updateMoodStats() {
 
 // ── AI Response Rendering ─────────────────────────────────────────────
 
-function getMoodCategory(score) {
-  if (score >= 7) return 'positive';
-  if (score >= 4) return 'neutral';
-  return 'negative';
-}
-
 function renderAnalysis(data) {
   const { mood, analysis, support, follow_up_question: followUp } = data;
   const category = getMoodCategory(mood.score);
@@ -252,7 +198,6 @@ function renderAnalysis(data) {
 
   aiResponse.innerHTML = `
     <div class="analysis-result">
-      <!-- Provider Badge -->
       ${data.provider ? `
       <div class="provider-badge">
         <span>🤖</span>
@@ -260,24 +205,20 @@ function renderAnalysis(data) {
       </div>
       ` : ''}
 
-      <!-- Mood Badge -->
       <div class="mood-badge ${category}">
         <span>${emoji}</span>
         <span>Feeling ${mood.primary.replace('_', ' ')} — ${mood.score}/10</span>
       </div>
 
-      <!-- Empathetic Response -->
       <div class="response-section">
         <p class="empathetic-text">${escapeHtml(support.empathetic_response)}</p>
       </div>
 
-      <!-- Analysis Summary -->
       <div class="response-section">
         <h4>🔍 What I Notice</h4>
         <p>${escapeHtml(analysis.summary)}</p>
       </div>
 
-      <!-- Stress Triggers -->
       ${analysis.stress_triggers && analysis.stress_triggers.length > 0 ? `
       <div class="response-section">
         <h4>⚡ Stress Triggers Detected</h4>
@@ -287,7 +228,6 @@ function renderAnalysis(data) {
       </div>
       ` : ''}
 
-      <!-- Emotional Patterns -->
       ${analysis.emotional_patterns ? `
       <div class="response-section">
         <h4>🧩 Emotional Patterns</h4>
@@ -295,7 +235,6 @@ function renderAnalysis(data) {
       </div>
       ` : ''}
 
-      <!-- Hidden Concerns -->
       ${analysis.hidden_concerns ? `
       <div class="response-section">
         <h4>💡 Between the Lines</h4>
@@ -303,7 +242,6 @@ function renderAnalysis(data) {
       </div>
       ` : ''}
 
-      <!-- Follow-up Question -->
       ${followUp ? `
       <div class="follow-up-box">
         <p>${escapeHtml(followUp)}</p>
@@ -312,11 +250,8 @@ function renderAnalysis(data) {
     </div>
   `;
 
-  // Show and populate coping section
   copingSection.hidden = false;
   renderCopingStrategies(support);
-
-  // Show chat interface for conversational follow-up
   showChatInterface(data);
 }
 
@@ -335,7 +270,6 @@ function showChatInterface(analysisData) {
   chatMessages.innerHTML = '';
   lastAnalysisContext = analysisData;
 
-  // Seed the conversation with the journal analysis context
   const summaryText = analysisData.analysis?.summary || 'I\'ve read your journal entry.';
   const followUp = analysisData.follow_up_question || 'Would you like to talk more?';
 
@@ -346,10 +280,8 @@ function showChatInterface(analysisData) {
     },
   ];
 
-  // Add the AI's opening message as a chat bubble
   addChatBubble('ai', `${summaryText} ${followUp}`, analysisData.provider);
 
-  // Focus the chat input
   setTimeout(() => {
     document.getElementById('chat-input')?.focus();
   }, 300);
@@ -391,13 +323,11 @@ async function handleChatSubmit(e) {
 
   if (!message) return;
 
-  // Add user message
   chatHistory.push({ role: 'user', content: message });
   addChatBubble('user', message);
   chatInput.value = '';
   sendBtn.disabled = true;
 
-  // Show typing indicator
   const typing = showTypingIndicator();
 
   try {
@@ -417,7 +347,6 @@ async function handleChatSubmit(e) {
     clearTimeout(timeout);
     const data = await response.json();
 
-    // Remove typing indicator
     typing?.remove();
 
     if (data.reply) {
@@ -438,7 +367,6 @@ async function handleChatSubmit(e) {
 function renderCopingStrategies(support) {
   const { coping_strategy: strategy, mindfulness_exercise: mindfulness, motivational_message: motivation } = support;
 
-  // Strategy card
   if (strategy) {
     document.getElementById('strategy-title').textContent = strategy.title;
     document.getElementById('strategy-desc').textContent = strategy.description;
@@ -448,23 +376,15 @@ function renderCopingStrategies(support) {
       .join('');
   }
 
-  // Mindfulness card
   if (mindfulness) {
     document.getElementById('mindfulness-title').textContent = mindfulness.title;
     document.getElementById('mindfulness-duration').textContent = `⏱️ ${mindfulness.duration}`;
     document.getElementById('mindfulness-instructions').textContent = mindfulness.instructions;
   }
 
-  // Motivational message
   if (motivation) {
     document.getElementById('motivational-text').textContent = motivation;
   }
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 // ── UI Helpers ────────────────────────────────────────────────────────
@@ -504,7 +424,6 @@ async function handleSubmit(e) {
   const entry = journalInput.value.trim();
   const exam = examSelect.value;
 
-  // Client-side validation
   if (!exam) {
     examSelect.focus();
     return;
@@ -518,7 +437,6 @@ async function handleSubmit(e) {
   showLoading();
 
   try {
-    // 30-second timeout to prevent spinner getting stuck
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
 
@@ -536,7 +454,6 @@ async function handleSubmit(e) {
       throw new Error(data.error || 'Failed to analyze journal.');
     }
 
-    // Save mood to history
     saveEntry({
       mood: data.mood?.primary || 'unknown',
       score: data.mood?.score || 5,
@@ -544,17 +461,14 @@ async function handleSubmit(e) {
       triggers: data.analysis?.stress_triggers || [],
     });
 
-    // Render everything
     renderAnalysis(data);
     renderMoodChart();
     updateMoodStats();
 
-    // Hide welcome message
     if (welcomeMessage) {
       welcomeMessage.style.display = 'none';
     }
 
-    // Scroll to response on mobile
     if (window.innerWidth <= 768) {
       aiResponse.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -574,8 +488,6 @@ function handleCharCount() {
   charCount.textContent = `${count} character${count !== 1 ? 's' : ''}`;
 }
 
-// ── Initialization ────────────────────────────────────────────────────
-
 // ── Quick Mood Check ──────────────────────────────────────────────────
 
 function initQuickMoodCheck() {
@@ -586,11 +498,9 @@ function initQuickMoodCheck() {
     const btn = e.target.closest('.mood-btn');
     if (!btn) return;
 
-    // Visual feedback
     grid.querySelectorAll('.mood-btn').forEach((b) => b.classList.remove('selected'));
     btn.classList.add('selected');
 
-    // Save to history
     saveEntry({
       mood: btn.dataset.mood,
       score: parseInt(btn.dataset.score, 10),
@@ -598,11 +508,9 @@ function initQuickMoodCheck() {
       triggers: [],
     });
 
-    // Update chart
     renderMoodChart();
     updateMoodStats();
 
-    // Brief feedback animation
     btn.style.transform = 'scale(1.15)';
     setTimeout(() => { btn.style.transform = ''; }, 300);
   });
@@ -621,7 +529,6 @@ function initBreathingExercise() {
 
   circle.addEventListener('click', () => {
     if (breathingActive) {
-      // Stop
       breathingActive = false;
       clearTimeout(breathingTimer);
       circle.className = 'breath-circle';
@@ -657,24 +564,6 @@ function runBreathCycle(circle, text, phase) {
 
 // ── Daily Affirmations ────────────────────────────────────────────────
 
-const AFFIRMATIONS = [
-  "You are more prepared than you think. Trust the hours you've put in. 🌟",
-  "Progress isn't always visible. Seeds grow in darkness before they bloom. 🌱",
-  "One day at a time. One chapter at a time. One question at a time. 📚",
-  "Your worth is not defined by a score. You are enough, exactly as you are. 💛",
-  "The fact that you're trying today means you haven't given up. That's strength. 💪",
-  "Comparison is the thief of joy. Your journey is uniquely yours. ✨",
-  "Rest is not laziness. Your brain needs downtime to consolidate what you've learned. 🧠",
-  "Every expert was once a beginner. Every topper once struggled with basics. 🎯",
-  "You don't have to be perfect. You just have to be better than yesterday. 📈",
-  "This exam is important, but it doesn't define your entire life. Breathe. 🫁",
-  "Mistakes are proof that you're trying. Each wrong answer teaches you something right. ✅",
-  "You've survived 100% of your worst days so far. You'll survive this too. 🌈",
-  "The pressure you feel is the same pressure that creates diamonds. 💎",
-  "Take a break. The books will wait. Your mental health cannot. 🧘",
-  "You are not behind. You are on your own timeline, and that's perfectly okay. ⏰",
-];
-
 function showAffirmation() {
   const text = document.getElementById('affirmation-text');
   if (!text) return;
@@ -693,25 +582,19 @@ function initAffirmations() {
 // ── Initialization ────────────────────────────────────────────────────
 
 function init() {
-  // Set theme
   initTheme();
-
-  // Render existing mood chart from history
   renderMoodChart();
   updateMoodStats();
 
-  // Event listeners
   journalForm.addEventListener('submit', handleSubmit);
   journalInput.addEventListener('input', handleCharCount);
   themeToggle.addEventListener('click', toggleTheme);
   clearHistoryBtn.addEventListener('click', clearHistory);
 
-  // Initialize new interactive widgets
   initQuickMoodCheck();
   initBreathingExercise();
   initAffirmations();
 
-  // Chat conversation
   const chatForm = document.getElementById('chat-form');
   if (chatForm) {
     chatForm.addEventListener('submit', handleChatSubmit);
@@ -720,5 +603,4 @@ function init() {
   console.log('🧠 MindMate AI initialized');
 }
 
-// Start the app
 init();

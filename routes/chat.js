@@ -28,8 +28,7 @@ router.post('/chat', async (req, res) => {
   } catch (err) {
     console.error('Chat error:', err);
     res.status(500).json({
-      reply: "I'm here for you. Could you rephrase that? I want to make sure I understand.",
-      provider: 'MindMate AI (error recovery)',
+      error: "I'm here for you. Could you rephrase that? I want to make sure I understand.",
     });
   }
 });
