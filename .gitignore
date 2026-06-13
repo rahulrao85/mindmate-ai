@@ -5,6 +5,10 @@ node_modules/
 Thumbs.db
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
 PROMPTWAR_PREP.md
 PROMPTWARS_SATURDAY_PREP.md
 PROMPTWARS IN PERSON/
