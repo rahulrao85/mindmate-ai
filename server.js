@@ -1,3 +1,11 @@
+/**
+ * @module server
+ * @fileoverview MindMate AI — Mental Wellness Tracker backend.
+ * Express server with 3-layer AI fallback chain (DeepSeek → Gemini → Static),
+ * Google Cloud Logging, Google Cloud Storage, and conversational chat.
+ * @author Rahul Rao
+ * @license MIT
+ */
 import 'dotenv/config';
 import express from 'express';
 import helmet from 'helmet';
@@ -40,6 +48,53 @@ const DEEPSEEK_MODEL = 'deepseek/deepseek-v4-flash';
 
 /** @constant {string} GEMINI_MODEL - Fallback AI model */
 const GEMINI_MODEL = 'gemini-2.0-flash-lite';
+
+// ── Lazy-initialized AI Clients (created once, reused) ───────────────
+/** @type {GoogleGenerativeAI|null} Singleton Gemini client */
+let geminiClient = null;
+
+/**
+ * Get or create the Gemini AI client (singleton pattern).
+ * Avoids creating a new client on every request.
+ * @returns {GoogleGenerativeAI|null} The Gemini client or null.
+ */
+function getGeminiClient() {
+  if (!GEMINI_API_KEY) return null;
+  if (!geminiClient) {
+    geminiClient = new GoogleGenerativeAI(GEMINI_API_KEY);
+  }
+  return geminiClient;
+}
+
+// ── Simple Response Cache (avoids redundant API calls) ────────────────
+/** @constant {number} CACHE_TTL_MS - Cache time-to-live (5 min) */
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+/** @type {Map<string, {data: object, timestamp: number}>} In-memory cache */
+const responseCache = new Map();
+
+/**
+ * Get cached response if still valid.
+ * @param {string} key - Cache key.
+ * @returns {object|null} Cached data or null if expired/missing.
+ */
+function getCached(key) {
+  const entry = responseCache.get(key);
+  if (entry && (Date.now() - entry.timestamp) < CACHE_TTL_MS) {
+    return entry.data;
+  }
+  responseCache.delete(key);
+  return null;
+}
+
+/**
+ * Store a response in cache.
+ * @param {string} key - Cache key.
+ * @param {object} data - Data to cache.
+ */
+function setCache(key, data) {
+  responseCache.set(key, { data, timestamp: Date.now() });
+}
 
 // ── Google Cloud Logging ──────────────────────────────────────────────
 /** @type {Logging} Google Cloud Logging client */
@@ -240,12 +295,12 @@ Rules:
  * @returns {Promise<object>} Parsed analysis response.
  */
 async function analyzeWithGemini(entry, exam) {
-  if (!GEMINI_API_KEY) {
+  const client = getGeminiClient();
+  if (!client) {
     throw new Error('Gemini API key not configured');
   }
 
-  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({
+  const model = client.getGenerativeModel({
     model: GEMINI_MODEL,
     systemInstruction: getSystemPrompt(),
   });
@@ -447,29 +502,42 @@ function getFallbackAnalysis(entry, exam) {
 }
 
 /**
- * Main analysis function with cascading fallback.
- * Tries Gemini first, then OpenRouter, then static fallback.
+ * Main analysis function with cascading fallback and response caching.
+ * Checks cache first, then tries DeepSeek, Gemini, and static fallback.
  * @param {string} entry - Student's journal entry.
  * @param {string} exam - Target exam type.
  * @returns {Promise<object>} Analysis result.
  */
 async function analyzeJournal(entry, exam) {
+  // Check cache for identical recent entries (avoids redundant API calls)
+  const cacheKey = `${exam}:${entry.trim().substring(0, 100)}`;
+  const cached = getCached(cacheKey);
+  if (cached) {
+    console.log('Cache hit — returning cached analysis');
+    return cached;
+  }
+
+  let result;
+
   // Try DeepSeek V4 Flash first (primary — best conversational model)
   try {
-    return await analyzeWithOpenRouter(entry, exam);
+    result = await analyzeWithOpenRouter(entry, exam);
   } catch (deepseekError) {
     console.error('DeepSeek failed, trying Gemini:', deepseekError.message);
+
+    // Try Gemini as fallback (Google Services pillar)
+    try {
+      result = await analyzeWithGemini(entry, exam);
+    } catch (geminiError) {
+      console.error('Gemini failed, using static fallback:', geminiError.message);
+      // Static fallback — always works
+      result = getFallbackAnalysis(entry, exam);
+    }
   }
 
-  // Try Gemini as fallback (Google Services pillar)
-  try {
-    return await analyzeWithGemini(entry, exam);
-  } catch (geminiError) {
-    console.error('Gemini failed, using static fallback:', geminiError.message);
-  }
-
-  // Static fallback — always works
-  return getFallbackAnalysis(entry, exam);
+  // Cache the result for future identical entries
+  setCache(cacheKey, result);
+  return result;
 }
 
 // ── API Routes ────────────────────────────────────────────────────────
@@ -655,11 +723,11 @@ Rules:
     }
   }
 
-  // Try Gemini as fallback
-  if (GEMINI_API_KEY) {
+  // Try Gemini as fallback (uses singleton client)
+  const client = getGeminiClient();
+  if (client) {
     try {
-      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({
+      const model = client.getGenerativeModel({
         model: GEMINI_MODEL,
         systemInstruction: chatSystemPrompt,
       });
