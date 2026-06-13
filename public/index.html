@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="MindMate AI — Your empathetic AI companion for mental wellness during exam preparation. Journal, track moods, and get personalized coping strategies." />
+  <title>MindMate AI — Mental Wellness Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <!-- ── Header ── -->
+  <header class="app-header" role="banner">
+    <div class="header-content">
+      <h1 class="logo" id="app-logo">
+        <span class="logo-icon" aria-hidden="true">🧠</span>
+        <span class="logo-text">MindMate AI</span>
+        <span class="logo-badge" aria-hidden="true">for Students</span>
+      </h1>
+      <div class="header-actions">
+        <button id="clear-history-btn" class="btn-ghost" aria-label="Clear mood history" title="Clear mood history">
+          🗑️
+        </button>
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle light and dark mode">
+          <span class="icon-sun" aria-hidden="true">☀️</span>
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="bento-grid" role="main">
+    <!-- ── Journal Input Panel ── -->
+    <section class="bento-card journal-panel" aria-label="Daily journal entry">
+      <div class="card-header">
+        <h2 class="card-title">📝 Daily Journal</h2>
+        <p class="card-subtitle">Share how you're feeling today</p>
+      </div>
+      <form id="journal-form" class="journal-form">
+        <div class="form-group">
+          <label for="exam-select" id="exam-label">Which exam are you preparing for?</label>
+          <select id="exam-select" class="form-input" aria-labelledby="exam-label" required>
+            <option value="" disabled selected>Select your exam...</option>
+            <option value="NEET">🏥 NEET (Medical)</option>
+            <option value="JEE">⚙️ JEE (Engineering)</option>
+            <option value="CUET">🎓 CUET (University)</option>
+            <option value="CAT">📊 CAT (Management)</option>
+            <option value="GATE">🔬 GATE (Graduate)</option>
+            <option value="UPSC">🏛️ UPSC (Civil Services)</option>
+            <option value="Board Exams">📚 Board Exams</option>
+            <option value="Other">📋 Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="journal-input">How was your day? What's on your mind?</label>
+          <textarea
+            id="journal-input"
+            class="form-input journal-textarea"
+            rows="6"
+            placeholder="Write freely... How's your preparation going? How are you feeling? Any worries? Wins? Just let it all out — this is a safe space. 💛"
+            aria-label="Write your journal entry here"
+            required
+            minlength="10"
+          ></textarea>
+          <span class="char-count" id="char-count" aria-live="polite">0 characters</span>
+        </div>
+        <button type="submit" id="submit-btn" class="btn-primary" aria-label="Analyze my journal entry">
+          <span class="btn-text">🔍 Analyze My Entry</span>
+          <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
+      </form>
+    </section>
+
+    <!-- ── Mood Timeline + Widgets (Right Column) ── -->
+    <section class="bento-card mood-panel" aria-label="Mood timeline and wellness tools">
+      <div class="card-header">
+        <h2 class="card-title">📊 Mood Timeline</h2>
+        <p class="card-subtitle" id="mood-summary">Track your emotional journey</p>
+      </div>
+      <div class="mood-chart-container">
+        <canvas id="mood-chart" aria-label="Mood score chart over time" role="img"></canvas>
+        <p class="placeholder-text" id="mood-placeholder">Your mood journey will appear here after your first journal entry...</p>
+      </div>
+      <div id="mood-stats" class="mood-stats" hidden>
+        <div class="stat-item">
+          <span class="stat-label">Entries</span>
+          <span class="stat-value" id="stat-entries">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Avg Mood</span>
+          <span class="stat-value" id="stat-avg">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Trend</span>
+          <span class="stat-value" id="stat-trend">—</span>
+        </div>
+      </div>
+
+      <!-- Breathing Exercise (inline) -->
+      <div class="inline-divider"></div>
+      <div class="card-header">
+        <h3 class="card-title">🫁 Breathe With Me</h3>
+      </div>
+      <div class="breathing-widget">
+        <div class="breath-circle" id="breath-circle">
+          <span class="breath-text" id="breath-text">Tap to start</span>
+        </div>
+        <p class="breath-instruction" id="breath-instruction">4-4-4-4 Box Breathing • Tap the circle to begin</p>
+      </div>
+
+      <!-- Daily Affirmation (inline) -->
+      <div class="inline-divider"></div>
+      <div class="card-header">
+        <h3 class="card-title">✨ Daily Affirmation</h3>
+      </div>
+      <div class="affirmation-content" id="affirmation-content">
+        <p class="affirmation-text" id="affirmation-text"></p>
+        <button class="btn-secondary" id="new-affirmation-btn" aria-label="Get new affirmation">🔄 New Affirmation</button>
+      </div>
+    </section>
+
+    <!-- ── AI Response Panel (Center) ── -->
+    <section class="bento-card response-panel" aria-label="AI wellness analysis" aria-live="polite">
+      <div class="card-header">
+        <h2 class="card-title">💬 MindMate Says</h2>
+      </div>
+      <div id="ai-response" class="ai-response">
+        <div class="welcome-message" id="welcome-message">
+          <div class="welcome-icon" aria-hidden="true">🤗</div>
+          <h3>Welcome to MindMate AI</h3>
+          <p>I'm your personal mental wellness companion, here to support you through your exam preparation journey.</p>
+          <p>Write a journal entry about your day, and I'll help you understand your emotions, identify stress triggers, and find ways to feel better.</p>
+          <div class="welcome-features">
+            <div class="feature-tag">😊 Mood Detection</div>
+            <div class="feature-tag">🎯 Stress Triggers</div>
+            <div class="feature-tag">🧘 Mindfulness</div>
+            <div class="feature-tag">💪 Coping Strategies</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Conversation -->
+      <div id="chat-section" class="chat-section" hidden>
+        <div class="chat-divider">
+          <span>Continue the conversation</span>
+        </div>
+        <div id="chat-messages" class="chat-messages" aria-label="Conversation messages"></div>
+        <form id="chat-form" class="chat-form">
+          <input
+            type="text"
+            id="chat-input"
+            class="form-input chat-input"
+            placeholder="Tell me more, ask for advice, or just talk..."
+            aria-label="Type your message"
+            autocomplete="off"
+          />
+          <button type="submit" class="btn-chat-send" aria-label="Send message">
+            <span>➤</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ── Coping Strategy Panel ── -->
+    <section class="bento-card coping-panel" aria-label="Coping strategies and mindfulness" hidden id="coping-section">
+      <div class="card-header">
+        <h2 class="card-title">🧘 Your Wellness Toolkit</h2>
+      </div>
+      <div class="coping-grid">
+        <article class="coping-card strategy-card" id="strategy-card" aria-label="Coping strategy">
+          <div class="coping-icon" aria-hidden="true">🎯</div>
+          <h3 id="strategy-title">Coping Strategy</h3>
+          <p id="strategy-desc" class="coping-desc"></p>
+          <ol id="strategy-steps" class="strategy-steps" aria-label="Strategy steps"></ol>
+        </article>
+        <article class="coping-card mindfulness-card" id="mindfulness-card" aria-label="Mindfulness exercise">
+          <div class="coping-icon" aria-hidden="true">🧘</div>
+          <h3 id="mindfulness-title">Mindfulness Exercise</h3>
+          <span class="duration-badge" id="mindfulness-duration"></span>
+          <p id="mindfulness-instructions" class="coping-desc"></p>
+        </article>
+      </div>
+      <div class="motivational-banner" id="motivational-banner" aria-label="Motivational message">
+        <span class="motive-icon" aria-hidden="true">💪</span>
+        <p id="motivational-text"></p>
+      </div>
+    </section>
+
+    <!-- ── Quick Mood Check (Bottom Left) ── -->
+    <section class="bento-card quick-mood-panel" aria-label="Quick mood check-in">
+      <div class="card-header">
+        <h2 class="card-title">⚡ Quick Mood Check</h2>
+        <p class="card-subtitle">Tap how you're feeling right now</p>
+      </div>
+      <div class="quick-mood-grid" id="quick-mood-grid">
+        <button class="mood-btn" data-mood="happy" data-score="9" aria-label="Happy">😊<span>Happy</span></button>
+        <button class="mood-btn" data-mood="calm" data-score="7" aria-label="Calm">😌<span>Calm</span></button>
+        <button class="mood-btn" data-mood="motivated" data-score="8" aria-label="Motivated">🔥<span>Motivated</span></button>
+        <button class="mood-btn" data-mood="anxious" data-score="4" aria-label="Anxious">😰<span>Anxious</span></button>
+        <button class="mood-btn" data-mood="stressed" data-score="3" aria-label="Stressed">😫<span>Stressed</span></button>
+        <button class="mood-btn" data-mood="sad" data-score="2" aria-label="Sad">😢<span>Sad</span></button>
+        <button class="mood-btn" data-mood="frustrated" data-score="3" aria-label="Frustrated">😤<span>Frustrated</span></button>
+        <button class="mood-btn" data-mood="hopeful" data-score="7" aria-label="Hopeful">🌟<span>Hopeful</span></button>
+      </div>
+    </section>
+  </main>
+
+
+  <!-- ── Chart.js CDN ── -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

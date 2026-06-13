@@ -1,3 +1,12 @@
 node_modules/
 .env
 *.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+PROMPTWAR_PREP.md
+PROMPTWARS_SATURDAY_PREP.md
+PROMPTWARS IN PERSON/
+MAIN - Challenge/
+How to submit.txt

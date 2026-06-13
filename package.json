@@ -1,15 +1,39 @@
 {
   "name": "mindmate-ai",
   "version": "1.0.0",
-  "description": "Gen AI Powered Solution that helps students monitor and improve their mental well-being.",
+  "description": "MindMate AI — Generative AI-powered mental wellness tracker for students preparing for competitive exams (NEET, JEE, CAT, UPSC, GATE)",
   "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit --no-cache"
   },
+  "keywords": [
+    "mental-health",
+    "wellness",
+    "ai",
+    "gemini",
+    "student",
+    "exam-prep",
+    "mindfulness",
+    "journaling"
+  ],
+  "author": "Rahul Rao",
+  "license": "MIT",
   "dependencies": {
+    "@google-cloud/logging": "^11.2.2",
+    "@google-cloud/storage": "^7.21.0",
+    "@google/generative-ai": "^0.21.0",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
     "express": "^4.21.1",
-    "@google/generative-ai": "^0.21.0"
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
   }
 }
