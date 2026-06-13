@@ -275,19 +275,16 @@ async function analyzeWithGemini(entry, exam) {
 }
 
 /**
- * Generate journal analysis using OpenRouter API (fallback).
- * @param {string} entry - Student's journal entry.
- * @param {string} exam - Target exam type.
- * @returns {Promise<object>} Parsed analysis response.
+ * Shared helper: call OpenRouter API with timeout and response cleaning.
+ * Used by both analyzeWithOpenRouter and chatWithAI to avoid duplication.
+ * @param {Array<{role: string, content: string}>} messages - Chat messages.
+ * @returns {Promise<string>} Cleaned response text (think-blocks stripped).
  */
-async function analyzeWithOpenRouter(entry, exam) {
+async function callOpenRouter(messages) {
   if (!OPENROUTER_API_KEY) {
     throw new Error('OpenRouter API key not configured');
   }
 
-  const prompt = `${getSystemPrompt()}\n\n${buildAnalysisPrompt(entry, exam)}`;
-
-  // 25-second timeout for OpenRouter
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
 
@@ -299,7 +296,7 @@ async function analyzeWithOpenRouter(entry, exam) {
     },
     body: JSON.stringify({
       model: DEEPSEEK_MODEL,
-      messages: [{ role: 'user', content: prompt }],
+      messages: messages,
     }),
     signal: controller.signal,
   });
@@ -314,10 +311,21 @@ async function analyzeWithOpenRouter(entry, exam) {
   const text = result.choices[0].message.content;
 
   // Strip <think> blocks from reasoning models
-  const noThink = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+}
+
+/**
+ * Generate journal analysis using OpenRouter API (fallback).
+ * @param {string} entry - Student's journal entry.
+ * @param {string} exam - Target exam type.
+ * @returns {Promise<object>} Parsed analysis response.
+ */
+async function analyzeWithOpenRouter(entry, exam) {
+  const prompt = `${getSystemPrompt()}\n\n${buildAnalysisPrompt(entry, exam)}`;
+  const rawText = await callOpenRouter([{ role: 'user', content: prompt }]);
 
   // Strip markdown fences
-  const cleaned = noThink
+  const cleaned = rawText
     .replace(/```(?:json)?\s*/gi, '')
     .replace(/```\s*$/gm, '')
     .trim();
@@ -616,9 +624,10 @@ app.post('/api/chat', async (req, res) => {
 
 /**
  * Generate a conversational reply using the AI fallback chain.
+ * Reuses shared callOpenRouter helper to avoid code duplication.
  * @param {Array} messages - Conversation history.
  * @param {string} exam - Target exam type.
- * @returns {Promise<object>} Reply object.
+ * @returns {Promise<object>} Reply object with reply and provider.
  */
 async function chatWithAI(messages, exam) {
   const chatSystemPrompt = `You are MindMate AI, an empathetic mental wellness companion for Indian students preparing for ${exam}. 
@@ -632,7 +641,21 @@ Rules:
 - Add a relevant emoji at the end of your response
 - Never diagnose medical conditions`;
 
-  // Try Gemini first
+  // Try DeepSeek first (primary — best for conversation)
+  if (OPENROUTER_API_KEY) {
+    try {
+      const openRouterMessages = [
+        { role: 'system', content: chatSystemPrompt },
+        ...messages,
+      ];
+      const result = await callOpenRouter(openRouterMessages);
+      return { reply: result, provider: 'DeepSeek V4 Flash' };
+    } catch (e) {
+      console.error('DeepSeek chat failed:', e.message);
+    }
+  }
+
+  // Try Gemini as fallback
   if (GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -665,49 +688,7 @@ Rules:
     }
   }
 
-  // Try OpenRouter
-  if (OPENROUTER_API_KEY) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
-
-      const openRouterMessages = [
-        { role: 'system', content: chatSystemPrompt },
-        ...messages,
-      ];
-
-      const response = await fetch(OPENROUTER_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: DEEPSEEK_MODEL,
-          messages: openRouterMessages,
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeout);
-      const result = await response.json();
-
-      if (result.choices?.[0]?.message?.content) {
-        let reply = result.choices[0].message.content;
-        // Strip <think> blocks
-        reply = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-        return {
-          reply: reply,
-          provider: 'DeepSeek V4 Flash',
-        };
-      }
-    } catch (e) {
-      console.error('OpenRouter chat failed:', e.message);
-    }
-  }
-
-  // Static fallback
-  const lastUserMsg = messages[messages.length - 1].content.toLowerCase();
+  // Static fallback — always works
   const supportive = [
     "I hear you, and what you're feeling is completely valid. Remember, every small step counts — even on tough days. 💛",
     "That takes courage to share. One thing that might help: try writing down 3 things that went well today, no matter how small. 🌟",
