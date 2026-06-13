@@ -9,7 +9,37 @@ import { Logging } from '@google-cloud/logging';
 import { Storage } from '@google-cloud/storage';
 
 const app = express();
+
+// ── Configuration Constants ───────────────────────────────────────────
+/** @constant {number} PORT - Server port from environment or default */
 const PORT = process.env.PORT || 3000;
+
+/** @constant {number} RATE_LIMIT_WINDOW_MS - Rate limit window (15 min) */
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
+/** @constant {number} RATE_LIMIT_MAX - Max requests per window per IP */
+const RATE_LIMIT_MAX = 100;
+
+/** @constant {string} PAYLOAD_LIMIT - Max JSON body size */
+const PAYLOAD_LIMIT = '16kb';
+
+/** @constant {number} GEMINI_TIMEOUT_MS - Gemini API timeout (10s) */
+const GEMINI_TIMEOUT_MS = 10000;
+
+/** @constant {number} OPENROUTER_TIMEOUT_MS - OpenRouter API timeout (25s) */
+const OPENROUTER_TIMEOUT_MS = 25000;
+
+/** @constant {number} MIN_JOURNAL_LENGTH - Minimum journal entry length */
+const MIN_JOURNAL_LENGTH = 10;
+
+/** @constant {string} OPENROUTER_API_URL - OpenRouter API endpoint */
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+/** @constant {string} DEEPSEEK_MODEL - Primary AI model */
+const DEEPSEEK_MODEL = 'deepseek/deepseek-v4-flash';
+
+/** @constant {string} GEMINI_MODEL - Fallback AI model */
+const GEMINI_MODEL = 'gemini-2.0-flash-lite';
 
 // ── Google Cloud Logging ──────────────────────────────────────────────
 /** @type {Logging} Google Cloud Logging client */
@@ -98,15 +128,15 @@ app.use(helmet({
   },
 }));
 app.use(cors());
-app.use(express.json({ limit: '16kb' }));
+app.use(express.json({ limit: PAYLOAD_LIMIT }));
 
 // ── Compression ───────────────────────────────────────────────────────
 app.use(compression());
 
 // ── Rate Limiting ─────────────────────────────────────────────────────
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
@@ -216,7 +246,7 @@ async function analyzeWithGemini(entry, exam) {
 
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash-lite',
+    model: GEMINI_MODEL,
     systemInstruction: getSystemPrompt(),
   });
 
@@ -224,7 +254,7 @@ async function analyzeWithGemini(entry, exam) {
 
   // 10-second timeout so fallback kicks in quickly on rate limits
   const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Gemini timeout (10s)')), 10000)
+    setTimeout(() => reject(new Error('Gemini timeout')), GEMINI_TIMEOUT_MS)
   );
 
   const result = await Promise.race([
@@ -259,16 +289,16 @@ async function analyzeWithOpenRouter(entry, exam) {
 
   // 25-second timeout for OpenRouter
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  const timeout = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
 
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const response = await fetch(OPENROUTER_API_URL, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'deepseek/deepseek-v4-flash',
+      model: DEEPSEEK_MODEL,
       messages: [{ role: 'user', content: prompt }],
     }),
     signal: controller.signal,
@@ -455,7 +485,7 @@ app.post('/api/analyze-journal', async (req, res) => {
       });
     }
 
-    if (entry.trim().length < 10) {
+    if (entry.trim().length < MIN_JOURNAL_LENGTH) {
       return res.status(400).json({
         error: 'Tell me a bit more — even a few sentences help me understand you better.',
       });
@@ -607,12 +637,12 @@ Rules:
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash-lite',
+        model: GEMINI_MODEL,
         systemInstruction: chatSystemPrompt,
       });
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Gemini chat timeout')), 10000)
+        setTimeout(() => reject(new Error('Gemini chat timeout')), GEMINI_TIMEOUT_MS)
       );
 
       const chatMessages = messages.map((m) => ({
@@ -639,21 +669,21 @@ Rules:
   if (OPENROUTER_API_KEY) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 25000);
+      const timeout = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
 
       const openRouterMessages = [
         { role: 'system', content: chatSystemPrompt },
         ...messages,
       ];
 
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const response = await fetch(OPENROUTER_API_URL, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'deepseek/deepseek-v4-flash',
+          model: DEEPSEEK_MODEL,
           messages: openRouterMessages,
         }),
         signal: controller.signal,
