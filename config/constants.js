@@ -6,9 +6,9 @@ export const RATE_LIMIT_MAX = 100;
 
 export const PAYLOAD_LIMIT = '16kb';
 
-export const GEMINI_TIMEOUT_MS = 10000;
+export const GEMINI_TIMEOUT_MS = 20000;
 
-export const OPENROUTER_TIMEOUT_MS = 25000;
+export const OPENROUTER_TIMEOUT_MS = 15000;
 
 export const MIN_JOURNAL_LENGTH = 10;
 
@@ -16,7 +16,7 @@ export const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions
 
 export const DEEPSEEK_MODEL = 'deepseek/deepseek-v4-flash';
 
-export const GEMINI_MODEL = 'gemini-2.0-flash-lite';
+export const GEMINI_MODEL = 'gemini-2.5-flash';
 
 export const CACHE_TTL_MS = 5 * 60 * 1000;
 

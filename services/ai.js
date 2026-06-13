@@ -73,7 +73,7 @@ export async function analyzeWithGemini(entry, exam) {
     .trim();
 
   const parsed = JSON.parse(cleaned);
-  parsed.provider = 'Google Gemini 2.0 Flash-Lite';
+  parsed.provider = 'Google Gemini 2.5 Flash';
   return parsed;
 }
 
@@ -236,14 +236,14 @@ export async function analyzeJournal(entry, exam) {
   let result;
 
   try {
-    result = await analyzeWithOpenRouter(entry, exam);
-  } catch (deepseekError) {
-    console.error('DeepSeek failed, trying Gemini:', deepseekError.message);
+    result = await analyzeWithGemini(entry, exam);
+  } catch (geminiError) {
+    console.error('Gemini failed, trying OpenRouter:', geminiError.message);
 
     try {
-      result = await analyzeWithGemini(entry, exam);
-    } catch (geminiError) {
-      console.error('Gemini failed, using static fallback:', geminiError.message);
+      result = await analyzeWithOpenRouter(entry, exam);
+    } catch (openRouterError) {
+      console.error('OpenRouter failed, using static fallback:', openRouterError.message);
       result = getFallbackAnalysis(entry, exam);
     }
   }
@@ -254,19 +254,6 @@ export async function analyzeJournal(entry, exam) {
 
 export async function chatWithAI(messages, exam) {
   const chatSystemPrompt = getChatSystemPrompt(exam);
-
-  if (OPENROUTER_API_KEY) {
-    try {
-      const openRouterMessages = [
-        { role: 'system', content: chatSystemPrompt },
-        ...messages,
-      ];
-      const result = await callOpenRouter(openRouterMessages);
-      return { reply: result, provider: 'DeepSeek V4 Flash' };
-    } catch (e) {
-      console.error('DeepSeek chat failed:', e.message);
-    }
-  }
 
   const geminiModel = getGeminiModel(chatSystemPrompt);
   if (geminiModel) {
@@ -289,10 +276,23 @@ export async function chatWithAI(messages, exam) {
 
       return {
         reply: result.response.text(),
-        provider: 'Google Gemini 2.0 Flash-Lite',
+        provider: 'Google Gemini 2.5 Flash',
       };
     } catch (e) {
       console.error('Gemini chat failed:', e.message);
+    }
+  }
+
+  if (OPENROUTER_API_KEY) {
+    try {
+      const openRouterMessages = [
+        { role: 'system', content: chatSystemPrompt },
+        ...messages,
+      ];
+      const result = await callOpenRouter(openRouterMessages);
+      return { reply: result, provider: 'DeepSeek V4 Flash' };
+    } catch (e) {
+      console.error('OpenRouter chat failed:', e.message);
     }
   }
 
