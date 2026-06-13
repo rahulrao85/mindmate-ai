@@ -341,4 +341,16 @@ describe('MindMate AI Server', () => {
       expect(res.body.reply.length).toBeGreaterThan(0);
     }, 60000);
   });
+
+  // ── Rate Limiting ─────────────────────────────────────────────────
+  describe('Rate Limiting', () => {
+    test('should return 429 after exceeding request limit', async () => {
+      let lastRes;
+      for (let i = 0; i < 105; i++) {
+        lastRes = await request(app).get('/api/health');
+      }
+      expect(lastRes.status).toBe(429);
+      expect(lastRes.body.error).toMatch(/too many requests/i);
+    }, 30000);
+  });
 });
