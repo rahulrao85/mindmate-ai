@@ -12,6 +12,8 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
+  <a href="#main-content" class="skip-link" aria-label="Skip to main content">Skip to main content</a>
+
   <!-- ── Header ── -->
   <header class="app-header" role="banner">
     <div class="header-content">
@@ -32,7 +34,7 @@
     </div>
   </header>
 
-  <main class="bento-grid" role="main">
+  <main class="bento-grid" role="main" id="main-content">
     <!-- ── Journal Input Panel ── -->
     <section class="bento-card journal-panel" aria-label="Daily journal entry">
       <div class="card-header">
@@ -62,6 +64,7 @@
             rows="6"
             placeholder="Write freely... How's your preparation going? How are you feeling? Any worries? Wins? Just let it all out — this is a safe space. 💛"
             aria-label="Write your journal entry here"
+            aria-required="true"
             required
             minlength="10"
           ></textarea>

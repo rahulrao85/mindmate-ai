@@ -40,6 +40,11 @@ app.use(express.static('public', {
   maxAge: '7d',
   etag: true,
   lastModified: true,
+  setHeaders(res, path) {
+    if (path.endsWith('.css') || path.endsWith('.js')) {
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+    }
+  },
 }));
 
 app.use('/api', analyzeRouter);

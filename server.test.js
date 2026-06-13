@@ -283,4 +283,62 @@ describe('MindMate AI Server', () => {
       expect(Array.isArray(res.body.analysis.stress_triggers)).toBe(true);
     }, 60000);
   });
+
+  // ── Chat Endpoint ────────────────────────────────────────────────
+  describe('POST /api/chat', () => {
+    test('should return 400 when messages is missing', async () => {
+      const res = await request(app)
+        .post('/api/chat')
+        .send({ exam: 'NEET' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/message/i);
+    });
+
+    test('should return 400 when messages is empty array', async () => {
+      const res = await request(app)
+        .post('/api/chat')
+        .send({ messages: [], exam: 'NEET' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/message/i);
+    });
+
+    test('should return 400 when last message content is empty', async () => {
+      const res = await request(app)
+        .post('/api/chat')
+        .send({ messages: [{ role: 'user', content: '' }], exam: 'NEET' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/empty/i);
+    });
+
+    test('should return 400 when last message content is whitespace', async () => {
+      const res = await request(app)
+        .post('/api/chat')
+        .send({ messages: [{ role: 'user', content: '   ' }], exam: 'NEET' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/empty/i);
+    });
+
+    test('should return 400 when last message content is not a string', async () => {
+      const res = await request(app)
+        .post('/api/chat')
+        .send({ messages: [{ role: 'user', content: 123 }], exam: 'NEET' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/empty/i);
+    });
+
+    test('should accept valid chat messages and return reply', async () => {
+      const res = await request(app)
+        .post('/api/chat')
+        .send({
+          messages: [
+            { role: 'user', content: 'I am feeling stressed about my NEET preparation.' },
+          ],
+          exam: 'NEET',
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.reply).toBeDefined();
+      expect(typeof res.body.reply).toBe('string');
+      expect(res.body.reply.length).toBeGreaterThan(0);
+    }, 60000);
+  });
 });

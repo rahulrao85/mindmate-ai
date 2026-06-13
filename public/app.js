@@ -1,17 +1,10 @@
-/**
- * MindMate AI — Frontend Application
- * Handles journal submission, mood tracking, chart rendering,
- * and AI response display.
- * @module app
- */
-
 // ── Constants ─────────────────────────────────────────────────────────
 const STORAGE_KEY = 'mindmate_mood_history';
 const THEME_KEY = 'mindmate_theme';
 const MAX_HISTORY = 30;
 
 // ── Mood Emoji Map ────────────────────────────────────────────────────
-/** Map mood names to their emoji representations */
+
 const MOOD_EMOJIS = {
   happy: '😊',
   motivated: '🔥',
@@ -41,22 +34,16 @@ const themeToggle = document.getElementById('theme-toggle');
 const clearHistoryBtn = document.getElementById('clear-history-btn');
 
 // ── Chart Instance ────────────────────────────────────────────────────
-/** @type {Chart|null} */
+
 let moodChart = null;
 
 // ── Theme Management ──────────────────────────────────────────────────
 
-/**
- * Initialize theme from localStorage or default to dark.
- */
 function initTheme() {
   const saved = localStorage.getItem(THEME_KEY) || 'dark';
   document.documentElement.setAttribute('data-theme', saved);
 }
 
-/**
- * Toggle between light and dark themes.
- */
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
   const next = current === 'dark' ? 'light' : 'dark';
@@ -71,10 +58,6 @@ function toggleTheme() {
 
 // ── Mood History (localStorage) ───────────────────────────────────────
 
-/**
- * Load mood history from localStorage.
- * @returns {Array<object>} Array of mood entries.
- */
 function loadHistory() {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
@@ -84,10 +67,6 @@ function loadHistory() {
   }
 }
 
-/**
- * Save a new mood entry to localStorage.
- * @param {object} entry - Mood entry with date, mood, score, exam.
- */
 function saveEntry(entry) {
   const history = loadHistory();
   history.push({
@@ -106,9 +85,6 @@ function saveEntry(entry) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
 }
 
-/**
- * Clear all mood history from localStorage.
- */
 function clearHistory() {
   if (confirm('Clear all mood history? This cannot be undone.')) {
     localStorage.removeItem(STORAGE_KEY);
@@ -119,10 +95,6 @@ function clearHistory() {
 
 // ── Chart Rendering ───────────────────────────────────────────────────
 
-/**
- * Get theme-appropriate chart colors.
- * @returns {object} Chart color configuration.
- */
 function getChartColors() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   return {
@@ -135,9 +107,6 @@ function getChartColors() {
   };
 }
 
-/**
- * Render the mood timeline chart using Chart.js.
- */
 function renderMoodChart() {
   const history = loadHistory();
   const canvas = document.getElementById('mood-chart');
@@ -230,9 +199,6 @@ function renderMoodChart() {
   });
 }
 
-/**
- * Update mood statistics display.
- */
 function updateMoodStats() {
   const history = loadHistory();
 
@@ -273,21 +239,12 @@ function updateMoodStats() {
 
 // ── AI Response Rendering ─────────────────────────────────────────────
 
-/**
- * Get mood category from score for badge styling.
- * @param {number} score - Mood score 1-10.
- * @returns {string} Category: 'positive', 'neutral', or 'negative'.
- */
 function getMoodCategory(score) {
   if (score >= 7) return 'positive';
   if (score >= 4) return 'neutral';
   return 'negative';
 }
 
-/**
- * Render the AI analysis response in the UI.
- * @param {object} data - Analysis data from the API.
- */
 function renderAnalysis(data) {
   const { mood, analysis, support, follow_up_question: followUp } = data;
   const category = getMoodCategory(mood.score);
@@ -365,16 +322,10 @@ function renderAnalysis(data) {
 
 // ── Chat Conversation System ──────────────────────────────────────────
 
-/** Conversation history for multi-turn chat */
 let chatHistory = [];
-/** Context from the last journal analysis */
+
 let lastAnalysisContext = null;
 
-/**
- * Show the chat interface after an analysis is rendered.
- * Seeds the conversation with the AI's initial analysis summary.
- * @param {object} analysisData - The analysis response from the API.
- */
 function showChatInterface(analysisData) {
   const chatSection = document.getElementById('chat-section');
   const chatMessages = document.getElementById('chat-messages');
@@ -404,12 +355,6 @@ function showChatInterface(analysisData) {
   }, 300);
 }
 
-/**
- * Add a chat bubble to the conversation display.
- * @param {string} type - 'user' or 'ai'.
- * @param {string} text - Message text.
- * @param {string} [provider] - AI provider name (for AI bubbles).
- */
 function addChatBubble(type, text, provider) {
   const chatMessages = document.getElementById('chat-messages');
   if (!chatMessages) return;
@@ -425,10 +370,6 @@ function addChatBubble(type, text, provider) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-/**
- * Show a typing indicator while waiting for AI response.
- * @returns {HTMLElement} The typing indicator element.
- */
 function showTypingIndicator() {
   const chatMessages = document.getElementById('chat-messages');
   if (!chatMessages) return null;
@@ -441,11 +382,6 @@ function showTypingIndicator() {
   return typing;
 }
 
-/**
- * Handle chat form submission.
- * Sends the conversation history to /api/chat and displays the reply.
- * @param {Event} e - Submit event.
- */
 async function handleChatSubmit(e) {
   e.preventDefault();
 
@@ -499,10 +435,6 @@ async function handleChatSubmit(e) {
   chatInput.focus();
 }
 
-/**
- * Render coping strategies and mindfulness exercises.
- * @param {object} support - Support data from the API.
- */
 function renderCopingStrategies(support) {
   const { coping_strategy: strategy, mindfulness_exercise: mindfulness, motivational_message: motivation } = support;
 
@@ -529,11 +461,6 @@ function renderCopingStrategies(support) {
   }
 }
 
-/**
- * Escape HTML entities to prevent XSS.
- * @param {string} text - Raw text to escape.
- * @returns {string} Escaped HTML string.
- */
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
@@ -542,26 +469,16 @@ function escapeHtml(text) {
 
 // ── UI Helpers ────────────────────────────────────────────────────────
 
-/**
- * Show the loading overlay.
- */
 function showLoading() {
   submitBtn.classList.add('loading');
   submitBtn.disabled = true;
 }
 
-/**
- * Hide the loading state on the button.
- */
 function hideLoading() {
   submitBtn.classList.remove('loading');
   submitBtn.disabled = false;
 }
 
-/**
- * Show an error message in the AI response area.
- * @param {string} message - Error message to display.
- */
 function showError(message) {
   aiResponse.innerHTML = `
     <div class="analysis-result">
@@ -581,11 +498,6 @@ function showError(message) {
 
 // ── Event Handlers ────────────────────────────────────────────────────
 
-/**
- * Handle journal form submission.
- * Sends journal entry to the API and renders the response.
- * @param {Event} e - Form submit event.
- */
 async function handleSubmit(e) {
   e.preventDefault();
 
@@ -657,9 +569,6 @@ async function handleSubmit(e) {
   }
 }
 
-/**
- * Update character count display.
- */
 function handleCharCount() {
   const count = journalInput.value.length;
   charCount.textContent = `${count} character${count !== 1 ? 's' : ''}`;
@@ -669,7 +578,6 @@ function handleCharCount() {
 
 // ── Quick Mood Check ──────────────────────────────────────────────────
 
-/** Handle quick mood button clicks */
 function initQuickMoodCheck() {
   const grid = document.getElementById('quick-mood-grid');
   if (!grid) return;
@@ -702,14 +610,9 @@ function initQuickMoodCheck() {
 
 // ── Breathing Exercise ────────────────────────────────────────────────
 
-/** Breathing exercise state */
 let breathingActive = false;
 let breathingTimer = null;
 
-/**
- * Initialize the breathing exercise widget.
- * 4-phase box breathing: Inhale → Hold → Exhale → Hold
- */
 function initBreathingExercise() {
   const circle = document.getElementById('breath-circle');
   const text = document.getElementById('breath-text');
@@ -733,12 +636,6 @@ function initBreathingExercise() {
   });
 }
 
-/**
- * Run one phase of the breathing cycle.
- * @param {HTMLElement} circle - The breathing circle element.
- * @param {HTMLElement} text - The breathing text element.
- * @param {number} phase - Current phase (0-3).
- */
 function runBreathCycle(circle, text, phase) {
   if (!breathingActive) return;
 
@@ -760,7 +657,6 @@ function runBreathCycle(circle, text, phase) {
 
 // ── Daily Affirmations ────────────────────────────────────────────────
 
-/** Exam-specific affirmations for students */
 const AFFIRMATIONS = [
   "You are more prepared than you think. Trust the hours you've put in. 🌟",
   "Progress isn't always visible. Seeds grow in darkness before they bloom. 🌱",
@@ -779,9 +675,6 @@ const AFFIRMATIONS = [
   "You are not behind. You are on your own timeline, and that's perfectly okay. ⏰",
 ];
 
-/**
- * Show a random affirmation.
- */
 function showAffirmation() {
   const text = document.getElementById('affirmation-text');
   if (!text) return;
@@ -789,9 +682,6 @@ function showAffirmation() {
   text.textContent = AFFIRMATIONS[idx];
 }
 
-/**
- * Initialize the affirmation widget.
- */
 function initAffirmations() {
   showAffirmation();
   const btn = document.getElementById('new-affirmation-btn');
@@ -802,9 +692,6 @@ function initAffirmations() {
 
 // ── Initialization ────────────────────────────────────────────────────
 
-/**
- * Initialize the MindMate AI application.
- */
 function init() {
   // Set theme
   initTheme();
